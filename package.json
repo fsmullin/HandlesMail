@@ -1,8 +1,17 @@
 {
-  "name": "handlesmail-preview",
-  "displayName": "HandlesMail Preview",
-  "description": "Preview HTML emails directly in VS Code with real-time updates, device simulation, and Handlebars template support",
+  "name": "handlesmail",
+  "displayName": "HandlesMail",
+  "description": "Preview and test dynamic transactional email templates with Handlebars syntax, device simulation, and email client compatibility checking",
   "version": "0.1.0",
+  "publisher": "fsmullin",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fsmullin/HandlesMail.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fsmullin/HandlesMail/issues"
+  },
+  "homepage": "https://github.com/fsmullin/HandlesMail#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -41,7 +50,7 @@
       }
     ],
     "configuration": {
-      "title": "HandlesMail Preview",
+      "title": "HandlesMail",
       "properties": {
         "htmlEmailPreview.autoPreview": {
           "type": "boolean",

@@ -1,4 +1,4 @@
-# HandlesMail Preview
+# HandlesMail
 
 A VS Code extension for previewing and testing dynamic transactional email templates with Handlebars syntax. Perfect for developers working with SendGrid dynamic templates, Mailchimp, or any Handlebars-based email system.
 
@@ -26,7 +26,7 @@ A VS Code extension for previewing and testing dynamic transactional email templ
 
 ### From VS Code Marketplace
 
-Search for "HandlesMail Preview" in the VS Code Extensions marketplace and click Install.
+Search for "HandlesMail" in the VS Code Extensions marketplace and click Install.
 
 ### Manual Installation
 
