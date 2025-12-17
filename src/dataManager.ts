@@ -12,6 +12,43 @@ export interface DataFile {
 
 export class DataManager {
   private dataCache: Map<string, DataFile> = new Map();
+  // Maximum JSON file size: 10MB
+  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+  /**
+   * Validate that a file path is safe and within allowed directories
+   */
+  private validatePath(filePath: string): boolean {
+    try {
+      const resolvedPath = path.resolve(filePath);
+      const normalizedPath = path.normalize(resolvedPath);
+      
+      // Check if path contains directory traversal attempts
+      if (normalizedPath.includes('..')) {
+        return false;
+      }
+      
+      // Check if the file exists and is a file (not a directory or symlink)
+      const stats = fs.lstatSync(normalizedPath);
+      if (!stats.isFile()) {
+        return false;
+      }
+      
+      // Check file size
+      if (stats.size > this.MAX_FILE_SIZE) {
+        return false;
+      }
+      
+      // Ensure the file is a JSON file
+      if (!normalizedPath.toLowerCase().endsWith('.json')) {
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
 
   /**
    * Auto-detect data files for a given HTML/template file
@@ -65,6 +102,18 @@ export class DataManager {
    * Load and parse a JSON data file
    */
   async loadDataFile(filePath: string): Promise<DataFile | null> {
+    // Validate path first
+    if (!this.validatePath(filePath)) {
+      const dataFile: DataFile = {
+        path: filePath,
+        name: path.basename(filePath),
+        data: {},
+        isValid: false,
+        error: 'Invalid file path or file too large',
+      };
+      return dataFile;
+    }
+    
     // Check cache first
     const cached = this.dataCache.get(filePath);
     if (cached) {
@@ -73,7 +122,18 @@ export class DataManager {
 
     try {
       const content = fs.readFileSync(filePath, 'utf8');
+      
+      // Validate content size
+      if (content.length > this.MAX_FILE_SIZE) {
+        throw new Error('File content too large');
+      }
+      
       const data = JSON.parse(content);
+      
+      // Validate that parsed data is an object
+      if (typeof data !== 'object' || data === null) {
+        throw new Error('JSON data must be an object');
+      }
       
       const dataFile: DataFile = {
         path: filePath,
@@ -209,17 +269,41 @@ export class DataManager {
    */
   async saveDataFile(filePath: string, data: any): Promise<boolean> {
     try {
+      const resolvedPath = path.resolve(filePath);
+      const normalizedPath = path.normalize(resolvedPath);
+      
+      // Check for directory traversal
+      if (normalizedPath.includes('..')) {
+        return false;
+      }
+      
+      // Ensure the file is a JSON file
+      if (!normalizedPath.toLowerCase().endsWith('.json')) {
+        return false;
+      }
+      
+      // Validate that data is an object
+      if (typeof data !== 'object' || data === null) {
+        return false;
+      }
+      
       const json = JSON.stringify(data, null, 2);
-      fs.writeFileSync(filePath, json, 'utf8');
+      
+      // Check size limit
+      if (json.length > this.MAX_FILE_SIZE) {
+        return false;
+      }
+      
+      fs.writeFileSync(normalizedPath, json, 'utf8');
       
       // Update cache
       const dataFile: DataFile = {
-        path: filePath,
-        name: path.basename(filePath),
+        path: normalizedPath,
+        name: path.basename(normalizedPath),
         data,
         isValid: true,
       };
-      this.dataCache.set(filePath, dataFile);
+      this.dataCache.set(normalizedPath, dataFile);
       
       return true;
     } catch (error) {

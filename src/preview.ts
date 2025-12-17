@@ -35,27 +35,43 @@ export class PreviewPanel {
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.file(path.dirname(document.uri.fsPath))],
+        localResourceRoots: [
+          vscode.Uri.file(path.dirname(document.uri.fsPath)),
+          vscode.Uri.file(context.extensionPath)
+        ],
       }
     );
 
     // Handle messages from webview
     this.panel.webview.onDidReceiveMessage(
       (message) => {
+        // Validate message structure
+        if (!message || typeof message !== 'object' || !message.command) {
+          return;
+        }
+        
         switch (message.command) {
           case 'changeViewport':
-            this.currentViewport = message.viewport;
+            if (typeof message.viewport === 'string' && this.isValidViewport(message.viewport)) {
+              this.currentViewport = message.viewport;
+            }
             break;
           case 'changeClient':
-            this.currentClient = message.client;
-            this.update(this.document);
+            if (typeof message.client === 'string' && this.isValidClient(message.client)) {
+              this.currentClient = message.client;
+              this.update(this.document);
+            }
             break;
           case 'toggleDarkMode':
-            this.darkMode = message.darkMode;
-            this.update(this.document);
+            if (typeof message.darkMode === 'boolean') {
+              this.darkMode = message.darkMode;
+              this.update(this.document);
+            }
             break;
           case 'changeDataFile':
-            this.selectDataFile(message.filePath);
+            if (typeof message.filePath === 'string') {
+              this.selectDataFile(message.filePath);
+            }
             break;
           case 'generateSampleData':
             this.generateAndApplySampleData();
@@ -103,6 +119,16 @@ export class PreviewPanel {
     this.disposeCallback = callback;
   }
 
+  private isValidViewport(viewport: string): boolean {
+    const validViewports = ['desktop-1920', 'desktop-1024', 'tablet-768', 'mobile-375', 'custom'];
+    return validViewports.includes(viewport);
+  }
+
+  private isValidClient(client: string): boolean {
+    const validClients = ['standard', 'gmail', 'outlook', 'apple'];
+    return validClients.includes(client);
+  }
+
   private getHtmlContent(htmlContent: string): string {
     // Check if content is a Handlebars template
     const isTemplate = this.templateEngine.isTemplate(htmlContent);
@@ -138,6 +164,7 @@ export class PreviewPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.panel.webview.cspSource} https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline' ${this.panel.webview.cspSource}; font-src ${this.panel.webview.cspSource} https:; connect-src 'none';">
   <title>Email Preview</title>
   <style>
     * {
@@ -842,11 +869,39 @@ export class PreviewPanel {
   }
 
   private sanitizeHtml(html: string): string {
-    // Basic HTML escape for script tags and dangerous attributes
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-      .replace(/on\w+\s*=\s*[^\s>]*/gi, '');
+    // Comprehensive HTML sanitization to prevent XSS attacks
+    let sanitized = html;
+    
+    // Remove script tags and their content
+    sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    
+    // Remove inline event handlers (onclick, onload, onerror, etc.)
+    sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+    sanitized = sanitized.replace(/\son\w+\s*=\s*[^\s>]*/gi, '');
+    
+    // Remove javascript: protocol in attributes
+    sanitized = sanitized.replace(/javascript:/gi, 'blocked:');
+    
+    // Remove data: protocol in attributes (can be used for XSS)
+    sanitized = sanitized.replace(/\s(src|href|action|formaction|background)\s*=\s*["']data:[^"']*["']/gi, '');
+    
+    // Remove vbscript: protocol
+    sanitized = sanitized.replace(/vbscript:/gi, 'blocked:');
+    
+    // Remove potentially dangerous tags
+    sanitized = sanitized.replace(/<(iframe|frame|frameset|object|embed|applet|meta|link\s+rel\s*=\s*["']?import)\b[^>]*>/gi, '');
+    sanitized = sanitized.replace(/<\/(iframe|frame|frameset|object|embed|applet)>/gi, '');
+    
+    // Remove form tags (forms don't work in email anyway)
+    sanitized = sanitized.replace(/<\/?form\b[^>]*>/gi, '');
+    
+    // Remove input, button, textarea (form elements)
+    sanitized = sanitized.replace(/<(input|button|textarea|select)\b[^>]*>/gi, '');
+    
+    // Remove base tag (can redirect all relative URLs)
+    sanitized = sanitized.replace(/<base\b[^>]*>/gi, '');
+    
+    return sanitized;
   }
 
   private async loadDataFiles() {
