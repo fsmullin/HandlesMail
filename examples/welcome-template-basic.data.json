@@ -1,0 +1,16 @@
+{
+  "companyName": "StartupHub",
+  "userName": "Alex Chen",
+  "userEmail": "alex.chen@startup.io",
+  "dashboardUrl": "https://startuphub.io/welcome",
+  "signupDate": "December 15, 2025",
+  "year": "2025",
+  "unsubscribeUrl": "https://startuphub.io/unsubscribe",
+  "isPremium": false,
+  "features": [
+    "Browse our getting started guide",
+    "Connect with other founders",
+    "Attend free weekly webinars",
+    "Access community resources"
+  ]
+}

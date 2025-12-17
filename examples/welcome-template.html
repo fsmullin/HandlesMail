@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome Email</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+      border-radius: 8px 8px 0 0;
+    }
+    .content {
+      background: #ffffff;
+      padding: 30px;
+      border: 1px solid #e0e0e0;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 30px;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Welcome to {{companyName}}!</h1>
+  </div>
+  
+  <div class="content">
+    <h2>Hi {{userName}},</h2>
+    
+    <p>Thank you for signing up! We're excited to have you on board.</p>
+    
+    <p>Your account has been successfully created with the email: <strong>{{userEmail}}</strong></p>
+    
+    {{#if isPremium}}
+    <p>🎉 <strong>Congratulations!</strong> You're a Premium member with access to exclusive features.</p>
+    {{/if}}
+    
+    <p>Here's what you can do next:</p>
+    <ul>
+      {{#each features}}
+      <li>{{this}}</li>
+      {{/each}}
+    </ul>
+    
+    <center>
+      <a href="{{dashboardUrl}}" class="button">Go to Dashboard</a>
+    </center>
+    
+    <p>If you have any questions, feel free to reply to this email or visit our help center.</p>
+    
+    <p>Best regards,<br>
+    The {{companyName}} Team</p>
+  </div>
+  
+  <div class="footer">
+    <p>Account created on {{signupDate}}</p>
+    <p>© {{year}} {{companyName}}. All rights reserved.</p>
+    <p><a href="{{unsubscribeUrl}}">Unsubscribe</a></p>
+  </div>
+</body>
+</html>

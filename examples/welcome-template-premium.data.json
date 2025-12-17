@@ -1,0 +1,17 @@
+{
+  "companyName": "TechFlow Solutions",
+  "userName": "Sarah Johnson",
+  "userEmail": "sarah.johnson@example.com",
+  "dashboardUrl": "https://app.techflow.com/dashboard",
+  "signupDate": "December 16, 2025",
+  "year": "2025",
+  "unsubscribeUrl": "https://app.techflow.com/unsubscribe",
+  "isPremium": true,
+  "features": [
+    "Complete your profile",
+    "Set up two-factor authentication",
+    "Explore our premium analytics dashboard",
+    "Join our exclusive community forum",
+    "Download our mobile app for iOS and Android"
+  ]
+}

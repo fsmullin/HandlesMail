@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { EmailValidator } from './validator';
 import { ResourceInspector } from './resourceInspector';
+import { TemplateEngine } from './templateEngine';
+import { DataManager, DataFile } from './dataManager';
 
 export class PreviewPanel {
   private panel: vscode.WebviewPanel;
@@ -14,11 +16,17 @@ export class PreviewPanel {
   private darkMode: boolean = false;
   private validator: EmailValidator;
   private resourceInspector: ResourceInspector;
+  private templateEngine: TemplateEngine;
+  private dataManager: DataManager;
+  private availableDataFiles: DataFile[] = [];
+  private currentDataFile: DataFile | null = null;
 
   constructor(context: vscode.ExtensionContext, document: vscode.TextDocument) {
     this.document = document;
     this.validator = new EmailValidator();
     this.resourceInspector = new ResourceInspector();
+    this.templateEngine = new TemplateEngine();
+    this.dataManager = new DataManager();
 
     // Create webview panel
     this.panel = vscode.window.createWebviewPanel(
@@ -46,14 +54,22 @@ export class PreviewPanel {
             this.darkMode = message.darkMode;
             this.update(this.document);
             break;
+          case 'changeDataFile':
+            this.selectDataFile(message.filePath);
+            break;
+          case 'generateSampleData':
+            this.generateAndApplySampleData();
+            break;
         }
       },
       null,
       this.disposables
     );
 
-    // Set initial content
-    this.update(document);
+    // Set initial content - load data files first, then update
+    this.loadDataFiles().then(() => {
+      this.update(document);
+    });
 
     // Handle panel disposal
     this.panel.onDidDispose(() => {
@@ -61,8 +77,12 @@ export class PreviewPanel {
     }, null, this.disposables);
   }
 
-  update(document: vscode.TextDocument) {
+  async update(document: vscode.TextDocument) {
     this.document = document;
+    
+    // Reload data files when document changes
+    await this.loadDataFiles();
+    
     this.panel.webview.html = this.getHtmlContent(document.getText());
     this.panel.title = `Email Preview - ${path.basename(document.uri.fsPath)}`;
   }
@@ -84,12 +104,34 @@ export class PreviewPanel {
   }
 
   private getHtmlContent(htmlContent: string): string {
-    const sanitized = this.sanitizeHtml(htmlContent);
+    // Check if content is a Handlebars template
+    const isTemplate = this.templateEngine.isTemplate(htmlContent);
+    let renderedContent = htmlContent;
+    let templateVariables: any[] = [];
+    let missingVariables: string[] = [];
+    let unusedDataProps: string[] = [];
+    
+    if (isTemplate) {
+      const data = this.currentDataFile?.data || {};
+      const renderResult = this.templateEngine.render(htmlContent, data);
+      renderedContent = renderResult.html;
+      templateVariables = renderResult.variables;
+      missingVariables = renderResult.missingVariables;
+      
+      // Find unused data properties
+      if (this.currentDataFile) {
+        const usedVarNames = templateVariables.map(v => v.name);
+        unusedDataProps = this.dataManager.findUnusedProperties(data, usedVarNames);
+      }
+    }
+    
+    const sanitized = this.sanitizeHtml(renderedContent);
     const clientStyles = this.getClientSpecificStyles();
-    const issues = this.validator.validate(htmlContent, this.currentClient);
+    const issues = this.validator.validate(renderedContent, this.currentClient);
     const validationReport = this.validator.generateValidationReport(issues);
-    const resources = this.resourceInspector.inspect(htmlContent);
+    const resources = this.resourceInspector.inspect(renderedContent);
     const resourceReport = this.resourceInspector.generateResourceReport(resources);
+    const variableReport = isTemplate ? this.generateVariableReport(templateVariables, missingVariables, unusedDataProps) : '';
     
     return `<!DOCTYPE html>
 <html lang="en">
@@ -171,13 +213,12 @@ export class PreviewPanel {
     .preview-wrapper {
       padding: 20px;
       background: ${this.darkMode ? '#252526' : 'white'};
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
     }
 
     .email-frame {
       width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
       border: 1px solid ${this.darkMode ? '#3e3e42' : '#e0e0e0'};
       border-radius: 4px;
       background: white;
@@ -509,6 +550,83 @@ export class PreviewPanel {
       font-style: italic;
     }
 
+    /* Variable Inspector Styles */
+    .variable-report {
+      font-size: 13px;
+    }
+
+    .variable-section {
+      margin-bottom: 16px;
+    }
+
+    .variable-section h4 {
+      font-size: 13px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .variable-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .variable-item {
+      padding: 6px 12px;
+      background: ${this.darkMode ? '#1e1e1e' : '#f9f9f9'};
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .variable-item.missing {
+      border-left: 3px solid #ffa500;
+    }
+
+    .variable-item.unused {
+      border-left: 3px solid #888;
+      opacity: 0.7;
+    }
+
+    .variable-name {
+      color: ${this.darkMode ? '#9cdcfe' : '#0066cc'};
+    }
+
+    .variable-status {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    .variable-status.ok {
+      background: #4caf50;
+      color: white;
+    }
+
+    .variable-status.missing {
+      background: #ffa500;
+      color: white;
+    }
+
+    .variable-status.unused {
+      background: #888;
+      color: white;
+    }
+
+    .no-template-notice {
+      padding: 12px;
+      text-align: center;
+      color: ${this.darkMode ? '#858585' : '#666'};
+      font-style: italic;
+    }
+
     ${clientStyles}
   </style>
 </head>
@@ -540,6 +658,22 @@ export class PreviewPanel {
       </select>
     </div>
 
+    ${isTemplate ? `
+    <div class="control-group">
+      <label for="dataFileSelect">Data File:</label>
+      <select id="dataFileSelect" onchange="changeDataFile(this.value)">
+        <option value="">No data</option>
+        ${this.availableDataFiles.map(df => 
+          `<option value="${df.path}" ${this.currentDataFile?.path === df.path ? 'selected' : ''}>${df.name}</option>`
+        ).join('')}
+      </select>
+    </div>
+    
+    <div class="control-group">
+      <button onclick="generateSampleData()">Generate Sample Data</button>
+    </div>
+    ` : ''}
+
     <div class="control-group">
       <label>
         <input type="checkbox" id="darkModeToggle" ${this.darkMode ? 'checked' : ''} onchange="toggleDarkMode(this.checked)">
@@ -550,24 +684,37 @@ export class PreviewPanel {
     <span class="dimension-display" id="dimensionDisplay"></span>
   </div>
 
+  ${isTemplate && variableReport ? `
+  <div class="validation-panel">
+    <div class="validation-toggle" onclick="toggleVariables()">
+      <span id="variableToggleIcon">▶</span>
+      <strong>Template Variables</strong>
+      <span style="font-size: 11px; color: #888;">(${templateVariables.length} variable${templateVariables.length !== 1 ? 's' : ''})</span>
+    </div>
+    <div id="variableContent" style="display: none;">
+      ${variableReport}
+    </div>
+  </div>
+  ` : ''}
+
   <div class="validation-panel">
     <div class="validation-toggle" onclick="toggleValidation()">
-      <span id="validationToggleIcon">▼</span>
+      <span id="validationToggleIcon">▶</span>
       <strong>Validation Report</strong>
       <span style="font-size: 11px; color: #888;">(${issues.length} issue${issues.length !== 1 ? 's' : ''})</span>
     </div>
-    <div id="validationContent">
+    <div id="validationContent" style="display: none;">
       ${validationReport}
     </div>
   </div>
 
   <div class="validation-panel">
     <div class="validation-toggle" onclick="toggleResources()">
-      <span id="resourceToggleIcon">▼</span>
+      <span id="resourceToggleIcon">▶</span>
       <strong>Resource Inspector</strong>
       <span style="font-size: 11px; color: #888;">(${resources.length} resource${resources.length !== 1 ? 's' : ''})</span>
     </div>
-    <div id="resourceContent">
+    <div id="resourceContent" style="display: none;">
       ${resourceReport}
     </div>
   </div>
@@ -584,8 +731,9 @@ export class PreviewPanel {
 
   <script>
     const vscode = acquireVsCodeApi();
-    let validationVisible = true;
-    let resourcesVisible = true;
+    let validationVisible = false;
+    let resourcesVisible = false;
+    let variablesVisible = false;
 
     function changeViewport(viewport) {
       const frame = document.getElementById('viewport');
@@ -598,8 +746,24 @@ export class PreviewPanel {
       vscode.postMessage({ command: 'changeClient', client: client });
     }
 
+    function changeDataFile(filePath) {
+      vscode.postMessage({ command: 'changeDataFile', filePath: filePath });
+    }
+
+    function generateSampleData() {
+      vscode.postMessage({ command: 'generateSampleData' });
+    }
+
     function toggleDarkMode(enabled) {
       vscode.postMessage({ command: 'toggleDarkMode', darkMode: enabled });
+    }
+
+    function toggleVariables() {
+      const content = document.getElementById('variableContent');
+      const icon = document.getElementById('variableToggleIcon');
+      variablesVisible = !variablesVisible;
+      content.style.display = variablesVisible ? 'block' : 'none';
+      icon.textContent = variablesVisible ? '▼' : '▶';
     }
 
     function toggleValidation() {
@@ -683,5 +847,96 @@ export class PreviewPanel {
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
       .replace(/on\w+\s*=\s*[^\s>]*/gi, '');
+  }
+
+  private async loadDataFiles() {
+    this.availableDataFiles = await this.dataManager.autoDetectDataFiles(this.document.uri.fsPath);
+    
+    // Auto-select the first data file if available and none selected
+    if (this.availableDataFiles.length > 0 && !this.currentDataFile) {
+      this.currentDataFile = this.availableDataFiles[0];
+    }
+  }
+
+  private async selectDataFile(filePath: string) {
+    if (!filePath) {
+      this.currentDataFile = null;
+    } else {
+      const dataFile = await this.dataManager.loadDataFile(filePath);
+      if (dataFile) {
+        this.currentDataFile = dataFile;
+      }
+    }
+    this.update(this.document);
+  }
+
+  private generateAndApplySampleData() {
+    const content = this.document.getText();
+    const renderResult = this.templateEngine.render(content, {});
+    const sampleData = this.dataManager.generateSampleData(
+      renderResult.variables.map(v => v.name)
+    );
+    
+    // Create a sample data file
+    const dir = path.dirname(this.document.uri.fsPath);
+    const basename = path.basename(this.document.uri.fsPath, path.extname(this.document.uri.fsPath));
+    const dataFilePath = path.join(dir, `${basename}.data.json`);
+    
+    this.dataManager.saveDataFile(dataFilePath, sampleData).then(success => {
+      if (success) {
+        vscode.window.showInformationMessage(`Sample data saved to ${path.basename(dataFilePath)}`);
+        this.loadDataFiles().then(() => this.update(this.document));
+      }
+    });
+  }
+
+  private generateVariableReport(
+    variables: any[],
+    missingVariables: string[],
+    unusedDataProps: string[]
+  ): string {
+    if (variables.length === 0) {
+      return '<div class="no-template-notice">No template variables detected</div>';
+    }
+
+    let html = '<div class="variable-report">';
+    
+    // All variables section
+    html += '<div class="variable-section">';
+    html += `<h4>📝 Template Variables (${variables.length})</h4>`;
+    html += '<div class="variable-list">';
+    
+    for (const variable of variables) {
+      const isMissing = missingVariables.includes(variable.name);
+      html += `<div class="variable-item ${isMissing ? 'missing' : ''}">`;
+      html += `<span class="variable-name">${variable.name}</span>`;
+      if (isMissing) {
+        html += '<span class="variable-status missing">Missing</span>';
+      } else {
+        html += '<span class="variable-status ok">✓</span>';
+      }
+      html += '</div>';
+    }
+    
+    html += '</div></div>';
+    
+    // Unused data properties
+    if (unusedDataProps.length > 0) {
+      html += '<div class="variable-section">';
+      html += `<h4>⚠️ Unused Data Properties (${unusedDataProps.length})</h4>`;
+      html += '<div class="variable-list">';
+      
+      for (const prop of unusedDataProps) {
+        html += '<div class="variable-item unused">';
+        html += `<span class="variable-name">${prop}</span>`;
+        html += '<span class="variable-status unused">Unused</span>';
+        html += '</div>';
+      }
+      
+      html += '</div></div>';
+    }
+    
+    html += '</div>';
+    return html;
   }
 }

@@ -72,10 +72,47 @@ A VS Code extension that allows developers to preview HTML emails directly withi
 
 ---
 
-## Phase 3: Productivity Features
+## Phase 3: Template Engine Integration
+**Estimated Timeline:** 2-3 weeks
+
+### 3.1 Handlebars Support
+- [ ] **Handlebars Syntax Recognition**
+  - Syntax highlighting for Handlebars templates
+  - Auto-completion for Handlebars helpers
+  - Template validation and error detection
+
+- [ ] **Live Template Rendering**
+  - Parse and render Handlebars templates in preview
+  - Support for variables, conditionals, loops
+  - Built-in Handlebars helpers (if, each, with, unless)
+  - Custom helper registration
+
+### 3.2 Data Integration
+- [ ] **JSON Data Files**
+  - Link template to JSON data file
+  - Auto-detect `.data.json` companion files that match the html template name
+  - Data file selector in preview controls
+  - Multiple data file support for different test scenarios
+
+- [ ] **Data Editor**
+  - Inline data editor in preview panel
+  - Quick edit common variables
+  - Sample data generator
+  - Validation for required template variables
+
+### 3.3 Template Variables Inspector
+- [ ] **Variable Detection**
+  - List all template variables used
+  - Show which variables are missing data
+  - Highlight unused data properties
+  - Variable usage statistics
+
+---
+
+## Phase 4: Productivity Features
 **Estimated Timeline:** 3-4 weeks
 
-### 3.1 Templates & Snippets
+### 4.1 Templates & Snippets
 - [ ] **Template Library**
   - Built-in email templates (welcome, newsletter, transactional)
   - Quick insert snippets for common email patterns
@@ -85,29 +122,31 @@ A VS Code extension that allows developers to preview HTML emails directly withi
   - Generate responsive email boilerplate
   - Insert preview command suggestions
 
-### 3.2 Testing & Validation
+### 4.2 Testing & Validation
 - [ ] **Email Validation**
   - Link checker (identify broken links)
   - Image validation (broken image detection)
   - HTML validity checker
   - Inline style linter
 
-- [ ] **Test Data Integration**
-  - Variable substitution preview ({{name}}, {{email}}, etc.)
-  - Sample data templates for dynamic content
+- [ ] **Enhanced Test Data**
+  - Multiple test data scenarios
+  - Data validation against schema
+  - Random data generation for testing
 
-### 3.3 Export & Sharing
+### 4.3 Export & Sharing
 - [ ] **Export Options**
   - Export as PDF
+  - Export with rendered template data
   - Export as standalone HTML
   - Copy rendered output to clipboard
 
 ---
 
-## Phase 4: Advanced Features
+## Phase 5: Advanced Features
 **Estimated Timeline:** 4-6 weeks
 
-### 4.1 Integration & Automation
+### 5.1 Integration & Automation
 - [ ] **Email Service Integration**
   - Send preview via email
   - Integration with email testing services (Litmus, Email on Acid)
@@ -118,7 +157,7 @@ A VS Code extension that allows developers to preview HTML emails directly withi
   - Change tracking in preview panel
   - Commit message suggestions
 
-### 4.2 Performance & Accessibility
+### 5.2 Performance & Accessibility
 - [ ] **Accessibility Checker**
   - WCAG compliance warnings
   - Screen reader compatibility hints
@@ -129,7 +168,7 @@ A VS Code extension that allows developers to preview HTML emails directly withi
   - Image optimization suggestions
   - Load time estimates
 
-### 4.3 Custom Themes & Styling
+### 5.3 Custom Themes & Styling
 - [ ] **Editor Themes**
   - Custom preview panel themes
   - User-defined color schemes
@@ -137,10 +176,11 @@ A VS Code extension that allows developers to preview HTML emails directly withi
 
 ---
 
-## Phase 5: Marketplace & Polish
+## Phase 6: Marketplace & Polish
+## Phase 6: Marketplace & Polish
 **Estimated Timeline:** 2-3 weeks
 
-### 5.1 Marketplace Preparation
+### 6.1 Marketplace Preparation
 - [ ] High-quality icon (128x128 and larger)
 - [ ] Comprehensive README with screenshots
 - [ ] Feature overview video/GIF
@@ -148,14 +188,14 @@ A VS Code extension that allows developers to preview HTML emails directly withi
 - [ ] Changelog for all releases
 - [ ] Contributing guidelines (if open source)
 
-### 5.2 Quality Assurance
+### 6.2 Quality Assurance
 - [ ] Cross-platform testing (Windows, macOS, Linux)
 - [ ] Multiple VS Code versions compatibility
 - [ ] Accessibility audit (WCAG 2.1)
 - [ ] Performance testing
 - [ ] Security review
 
-### 5.3 Community & Support
+### 6.3 Community & Support
 - [ ] GitHub repository setup
 - [ ] Issue templates
 - [ ] Discussion/Q&A setup
@@ -167,18 +207,23 @@ A VS Code extension that allows developers to preview HTML emails directly withi
 
 ### Dependencies
 - `@vscode/webview-ui-toolkit` - VS Code UI components
+- `handlebars` - Template engine for dynamic content
 - `html-parser` or `cheerio` - HTML parsing (if needed)
 - `sharp` - Image processing (future)
 
 ### Key Components
 - **Extension Host** - Main command handlers
 - **Webview Provider** - Preview panel rendering
+- **Template Engine** - Handlebars rendering
 - **File Watcher** - Real-time update listener
 - **Configuration Manager** - Extension settings
+- **Data Manager** - JSON data file handling
 
 ### Data Flow
 ```
-Editor File → File Watcher → Process Updates → Render in Webview → Display Preview
+Editor File → File Watcher → Template Engine (if .hbs) → Process Updates → Render in Webview → Display Preview
+                                        ↑
+                                   JSON Data File
 ```
 
 ---
