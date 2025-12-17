@@ -164,6 +164,11 @@ export class PreviewPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Content Security Policy: 
+       - script-src 'unsafe-inline' is required for VS Code webview communication (acquireVsCodeApi)
+       - Primary XSS protection comes from CSP blocking external scripts and sanitization
+       - style-src 'unsafe-inline' is required for email preview styling
+  -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.panel.webview.cspSource} https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline' ${this.panel.webview.cspSource}; font-src ${this.panel.webview.cspSource} https:; connect-src 'none';">
   <title>Email Preview</title>
   <style>
@@ -891,12 +896,16 @@ export class PreviewPanel {
       sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
       sanitized = sanitized.replace(/\son\w+\s*=\s*[^\s"'>][^\s>]*/gi, '');
       
-      // Remove dangerous protocols (javascript:, data:, vbscript:)
+      // Remove dangerous protocols more comprehensively
+      // Match javascript: with any whitespace or encoded characters
+      sanitized = sanitized.replace(/j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t\s*:/gi, 'blocked:');
       sanitized = sanitized.replace(/javascript\s*:/gi, 'blocked:');
       sanitized = sanitized.replace(/vbscript\s*:/gi, 'blocked:');
+      
       // Note: data: URLs are allowed for images in CSP and email templates commonly use them
       // but we block them in href/action/formaction/background contexts
-      sanitized = sanitized.replace(/\s(href|action|formaction|background)\s*=\s*["']data:[^"']*["']/gi, '');
+      // Handle with and without quotes
+      sanitized = sanitized.replace(/\s(href|action|formaction|background)\s*=\s*["']?\s*data:[^"'\s>]*/gi, ' $1="blocked:"');
       
       // Remove potentially dangerous tags (with whitespace tolerance)
       sanitized = sanitized.replace(/<iframe[\s\S]*?<\/iframe[\s]*>/gi, '');
@@ -936,7 +945,8 @@ export class PreviewPanel {
     if (!filePath) {
       this.currentDataFile = null;
     } else {
-      const dataFile = await this.dataManager.loadDataFile(filePath);
+      const workspaceDir = path.dirname(this.document.uri.fsPath);
+      const dataFile = await this.dataManager.loadDataFile(filePath, workspaceDir);
       if (dataFile) {
         this.currentDataFile = dataFile;
       }
@@ -956,7 +966,7 @@ export class PreviewPanel {
     const basename = path.basename(this.document.uri.fsPath, path.extname(this.document.uri.fsPath));
     const dataFilePath = path.join(dir, `${basename}.data.json`);
     
-    this.dataManager.saveDataFile(dataFilePath, sampleData).then(success => {
+    this.dataManager.saveDataFile(dataFilePath, sampleData, dir).then(success => {
       if (success) {
         vscode.window.showInformationMessage(`Sample data saved to ${path.basename(dataFilePath)}`);
         this.loadDataFiles().then(() => this.update(this.document));

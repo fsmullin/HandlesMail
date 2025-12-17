@@ -18,18 +18,12 @@ export class DataManager {
   /**
    * Validate that a file path is safe and within allowed directories
    */
-  private validatePath(filePath: string): boolean {
+  private validatePath(filePath: string, workspacePath?: string): boolean {
     try {
       const resolvedPath = path.resolve(filePath);
-      const normalizedPath = path.normalize(resolvedPath);
-      
-      // Check if path contains directory traversal attempts
-      if (normalizedPath.includes('..')) {
-        return false;
-      }
       
       // Check if the file exists and is a file (not a directory or symlink)
-      const stats = fs.lstatSync(normalizedPath);
+      const stats = fs.lstatSync(resolvedPath);
       if (!stats.isFile()) {
         return false;
       }
@@ -40,8 +34,19 @@ export class DataManager {
       }
       
       // Ensure the file is a JSON file
-      if (!normalizedPath.toLowerCase().endsWith('.json')) {
+      if (!resolvedPath.toLowerCase().endsWith('.json')) {
         return false;
+      }
+      
+      // If a workspace path is provided, ensure the file is within the workspace
+      if (workspacePath) {
+        const resolvedWorkspace = path.resolve(workspacePath);
+        const relativePath = path.relative(resolvedWorkspace, resolvedPath);
+        
+        // If the relative path starts with .. or is an absolute path, it's outside the workspace
+        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+          return false;
+        }
       }
       
       return true;
@@ -83,7 +88,7 @@ export class DataManager {
         const dataFilePath = path.join(dir, fileName);
         
         try {
-          const dataFile = await this.loadDataFile(dataFilePath);
+          const dataFile = await this.loadDataFile(dataFilePath, dir);
           if (dataFile) {
             dataFiles.push(dataFile);
           }
@@ -101,9 +106,9 @@ export class DataManager {
   /**
    * Load and parse a JSON data file
    */
-  async loadDataFile(filePath: string): Promise<DataFile | null> {
+  async loadDataFile(filePath: string, workspacePath?: string): Promise<DataFile | null> {
     // Validate path first
-    if (!this.validatePath(filePath)) {
+    if (!this.validatePath(filePath, workspacePath)) {
       const dataFile: DataFile = {
         path: filePath,
         name: path.basename(filePath),
@@ -267,19 +272,24 @@ export class DataManager {
   /**
    * Save data to a JSON file
    */
-  async saveDataFile(filePath: string, data: any): Promise<boolean> {
+  async saveDataFile(filePath: string, data: any, workspacePath?: string): Promise<boolean> {
     try {
       const resolvedPath = path.resolve(filePath);
-      const normalizedPath = path.normalize(resolvedPath);
       
-      // Check for directory traversal
-      if (normalizedPath.includes('..')) {
+      // Ensure the file is a JSON file
+      if (!resolvedPath.toLowerCase().endsWith('.json')) {
         return false;
       }
       
-      // Ensure the file is a JSON file
-      if (!normalizedPath.toLowerCase().endsWith('.json')) {
-        return false;
+      // If a workspace path is provided, ensure the file is within the workspace
+      if (workspacePath) {
+        const resolvedWorkspace = path.resolve(workspacePath);
+        const relativePath = path.relative(resolvedWorkspace, resolvedPath);
+        
+        // If the relative path starts with .. or is an absolute path, it's outside the workspace
+        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+          return false;
+        }
       }
       
       // Validate that data is an object
@@ -294,16 +304,16 @@ export class DataManager {
         return false;
       }
       
-      fs.writeFileSync(normalizedPath, json, 'utf8');
+      fs.writeFileSync(resolvedPath, json, 'utf8');
       
       // Update cache
       const dataFile: DataFile = {
-        path: normalizedPath,
-        name: path.basename(normalizedPath),
+        path: resolvedPath,
+        name: path.basename(resolvedPath),
         data,
         isValid: true,
       };
-      this.dataCache.set(normalizedPath, dataFile);
+      this.dataCache.set(resolvedPath, dataFile);
       
       return true;
     } catch (error) {

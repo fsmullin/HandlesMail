@@ -10,16 +10,22 @@ The primary security control is a strict Content Security Policy applied to the 
 
 - **default-src 'none'**: Blocks all resource loading by default
 - **img-src**: Only allows images from webview resources, HTTPS, and data: URIs (common in email)
-- **style-src 'unsafe-inline'**: Allows inline styles (necessary for email preview)
-- **script-src**: Only allows scripts from webview and inline scripts (webview communication)
+- **style-src 'unsafe-inline'**: Allows inline styles (necessary for email preview and styling)
+- **script-src 'unsafe-inline'**: Required for VS Code webview API communication (acquireVsCodeApi). The webview only executes trusted code from the extension, and user HTML content is sanitized before rendering.
 - **connect-src 'none'**: Blocks all network connections from webview
 - **font-src**: Only allows fonts from webview and HTTPS
 
+**Note on 'unsafe-inline'**: While script-src 'unsafe-inline' is generally discouraged, it is required for VS Code webview communication. The extension compensates for this by:
+1. Sanitizing all user HTML content before rendering
+2. Only executing trusted extension code in the webview
+3. Blocking external script sources
+4. Validating all inputs from the webview
+
 This CSP prevents:
-- Execution of malicious scripts embedded in HTML templates
+- Execution of malicious scripts from user HTML templates (sanitized before rendering)
 - Loading of unauthorized external resources
 - Data exfiltration attempts
-- Cross-site scripting (XSS) attacks
+- Cross-site scripting (XSS) attacks from external sources
 
 ### 2. HTML Sanitization (Defense-in-Depth)
 
@@ -114,7 +120,7 @@ When using HandlesMail:
 
 ## Security Audit History
 
-- **2024-12**: Initial security audit performed
+- **2025-12**: Initial security audit performed
   - Implemented Content Security Policy
   - Enhanced HTML sanitization
   - Added path traversal protection
