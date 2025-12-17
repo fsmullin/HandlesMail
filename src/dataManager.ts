@@ -43,8 +43,10 @@ export class DataManager {
         const resolvedWorkspace = path.resolve(workspacePath);
         const relativePath = path.relative(resolvedWorkspace, resolvedPath);
         
+        // Empty string or '.' means the file is in the workspace root, which is allowed
         // If the relative path starts with .. or is an absolute path, it's outside the workspace
-        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        if (relativePath !== '' && relativePath !== '.' && 
+            (relativePath.startsWith('..') || path.isAbsolute(relativePath))) {
           return false;
         }
       }
@@ -135,9 +137,9 @@ export class DataManager {
       
       const data = JSON.parse(content);
       
-      // Validate that parsed data is an object
-      if (typeof data !== 'object' || data === null) {
-        throw new Error('JSON data must be an object');
+      // Validate that parsed data is an object (not an array, not null)
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        throw new Error('JSON data must be an object, not an array');
       }
       
       const dataFile: DataFile = {
@@ -286,14 +288,16 @@ export class DataManager {
         const resolvedWorkspace = path.resolve(workspacePath);
         const relativePath = path.relative(resolvedWorkspace, resolvedPath);
         
+        // Empty string or '.' means the file is in the workspace root, which is allowed
         // If the relative path starts with .. or is an absolute path, it's outside the workspace
-        if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        if (relativePath !== '' && relativePath !== '.' && 
+            (relativePath.startsWith('..') || path.isAbsolute(relativePath))) {
           return false;
         }
       }
       
-      // Validate that data is an object
-      if (typeof data !== 'object' || data === null) {
+      // Validate that data is an object (not an array, not null)
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
         return false;
       }
       

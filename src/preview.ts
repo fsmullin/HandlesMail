@@ -881,11 +881,14 @@ export class PreviewPanel {
     // resource loading regardless of what gets through this filter.
     let sanitized = html;
     let previousLength = -1;
+    let iterations = 0;
+    const MAX_ITERATIONS = 10; // Prevent infinite loops from malicious HTML
     
     // Keep sanitizing until no more changes occur (prevents nested attacks)
     // We use a loop because attackers may try nested encodings like <<script>script>
-    while (sanitized.length !== previousLength && sanitized.length > 0) {
+    while (sanitized.length !== previousLength && sanitized.length > 0 && iterations < MAX_ITERATIONS) {
       previousLength = sanitized.length;
+      iterations++;
       
       // Remove script tags and their content (with whitespace tolerance)
       sanitized = sanitized.replace(/<script[\s\S]*?<\/script[\s]*>/gi, '');
@@ -897,10 +900,9 @@ export class PreviewPanel {
       sanitized = sanitized.replace(/\son\w+\s*=\s*[^\s"'>][^\s>]*/gi, '');
       
       // Remove dangerous protocols more comprehensively
-      // Match javascript: with any whitespace or encoded characters
+      // Single pattern that matches javascript: with optional whitespace between characters
       sanitized = sanitized.replace(/j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t\s*:/gi, 'blocked:');
-      sanitized = sanitized.replace(/javascript\s*:/gi, 'blocked:');
-      sanitized = sanitized.replace(/vbscript\s*:/gi, 'blocked:');
+      sanitized = sanitized.replace(/v\s*b\s*s\s*c\s*r\s*i\s*p\s*t\s*:/gi, 'blocked:');
       
       // Note: data: URLs are allowed for images in CSP and email templates commonly use them
       // but we block them in href/action/formaction/background contexts
