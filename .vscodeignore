@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "displayName": "HTML Email Preview",
+  "description": "Preview HTML emails directly in VS Code with real-time updates and responsive design views",
+  "categories": ["Visualization", "Other"],
+  "keywords": ["email", "html", "preview", "template", "mail"],
+  "activationEvents": ["onLanguage:html"],
+  "engines": {
+    "vscode": "^1.85.0"
+  }
+}
