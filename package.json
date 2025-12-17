@@ -1,7 +1,7 @@
 {
-  "name": "html-email-preview",
-  "displayName": "HTML Email Preview",
-  "description": "Preview HTML emails directly in VS Code with real-time updates",
+  "name": "handlesmail-preview",
+  "displayName": "HandlesMail Preview",
+  "description": "Preview HTML emails directly in VS Code with real-time updates, device simulation, and Handlebars template support",
   "version": "0.1.0",
   "engines": {
     "vscode": "^1.85.0"
@@ -41,7 +41,7 @@
       }
     ],
     "configuration": {
-      "title": "HTML Email Preview",
+      "title": "HandlesMail Preview",
       "properties": {
         "htmlEmailPreview.autoPreview": {
           "type": "boolean",
