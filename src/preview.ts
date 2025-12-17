@@ -869,37 +869,56 @@ export class PreviewPanel {
   }
 
   private sanitizeHtml(html: string): string {
-    // Comprehensive HTML sanitization to prevent XSS attacks
+    // Defense-in-depth HTML sanitization
+    // NOTE: The primary security control is the Content Security Policy (CSP) in the webview.
+    // This sanitization provides an additional layer of protection but should not be relied upon
+    // as the sole security mechanism. CSP prevents execution of inline scripts and restricts
+    // resource loading regardless of what gets through this filter.
     let sanitized = html;
+    let previousLength = -1;
     
-    // Remove script tags and their content
-    sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-    
-    // Remove inline event handlers (onclick, onload, onerror, etc.)
-    sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
-    sanitized = sanitized.replace(/\son\w+\s*=\s*[^\s>]*/gi, '');
-    
-    // Remove javascript: protocol in attributes
-    sanitized = sanitized.replace(/javascript:/gi, 'blocked:');
-    
-    // Remove data: protocol in attributes (can be used for XSS)
-    sanitized = sanitized.replace(/\s(src|href|action|formaction|background)\s*=\s*["']data:[^"']*["']/gi, '');
-    
-    // Remove vbscript: protocol
-    sanitized = sanitized.replace(/vbscript:/gi, 'blocked:');
-    
-    // Remove potentially dangerous tags
-    sanitized = sanitized.replace(/<(iframe|frame|frameset|object|embed|applet|meta|link\s+rel\s*=\s*["']?import)\b[^>]*>/gi, '');
-    sanitized = sanitized.replace(/<\/(iframe|frame|frameset|object|embed|applet)>/gi, '');
-    
-    // Remove form tags (forms don't work in email anyway)
-    sanitized = sanitized.replace(/<\/?form\b[^>]*>/gi, '');
-    
-    // Remove input, button, textarea (form elements)
-    sanitized = sanitized.replace(/<(input|button|textarea|select)\b[^>]*>/gi, '');
-    
-    // Remove base tag (can redirect all relative URLs)
-    sanitized = sanitized.replace(/<base\b[^>]*>/gi, '');
+    // Keep sanitizing until no more changes occur (prevents nested attacks)
+    // We use a loop because attackers may try nested encodings like <<script>script>
+    while (sanitized.length !== previousLength && sanitized.length > 0) {
+      previousLength = sanitized.length;
+      
+      // Remove script tags and their content (with whitespace tolerance)
+      sanitized = sanitized.replace(/<script[\s\S]*?<\/script[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<script[^>]*>/gi, '');
+      
+      // Remove inline event handlers with various formats
+      // Pattern handles: onclick="..." onclick='...' onclick=... 
+      sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+      sanitized = sanitized.replace(/\son\w+\s*=\s*[^\s"'>][^\s>]*/gi, '');
+      
+      // Remove dangerous protocols (javascript:, data:, vbscript:)
+      sanitized = sanitized.replace(/javascript\s*:/gi, 'blocked:');
+      sanitized = sanitized.replace(/vbscript\s*:/gi, 'blocked:');
+      // Note: data: URLs are allowed for images in CSP and email templates commonly use them
+      // but we block them in href/action/formaction/background contexts
+      sanitized = sanitized.replace(/\s(href|action|formaction|background)\s*=\s*["']data:[^"']*["']/gi, '');
+      
+      // Remove potentially dangerous tags (with whitespace tolerance)
+      sanitized = sanitized.replace(/<iframe[\s\S]*?<\/iframe[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<iframe[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<object[\s\S]*?<\/object[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<object[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<embed[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<applet[\s\S]*?<\/applet[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<applet[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<frame[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<frameset[\s\S]*?<\/frameset[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<meta[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<base[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<link\s+rel\s*=\s*["']?import["']?[^>]*>/gi, '');
+      
+      // Remove form-related tags (forms don't work in email clients anyway)
+      sanitized = sanitized.replace(/<\/?form[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<input[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<button[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<textarea[\s\S]*?<\/textarea[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<select[\s\S]*?<\/select[\s]*>/gi, '');
+    }
     
     return sanitized;
   }
