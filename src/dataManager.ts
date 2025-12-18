@@ -12,6 +12,50 @@ export interface DataFile {
 
 export class DataManager {
   private dataCache: Map<string, DataFile> = new Map();
+  // Maximum JSON file size: 10MB
+  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+  /**
+   * Validate that a file path is safe and within allowed directories
+   */
+  private validatePath(filePath: string, workspacePath?: string): boolean {
+    try {
+      const resolvedPath = path.resolve(filePath);
+      
+      // Check if the file exists and is a file (not a directory or symlink)
+      const stats = fs.lstatSync(resolvedPath);
+      if (!stats.isFile()) {
+        return false;
+      }
+      
+      // Check file size
+      if (stats.size > this.MAX_FILE_SIZE) {
+        return false;
+      }
+      
+      // Ensure the file is a JSON file
+      if (!resolvedPath.toLowerCase().endsWith('.json')) {
+        return false;
+      }
+      
+      // If a workspace path is provided, ensure the file is within the workspace
+      if (workspacePath) {
+        const resolvedWorkspace = path.resolve(workspacePath);
+        const relativePath = path.relative(resolvedWorkspace, resolvedPath);
+        
+        // Empty string or '.' means the file is in the workspace root, which is allowed
+        // If the relative path starts with .. or is an absolute path, it's outside the workspace
+        if (relativePath !== '' && relativePath !== '.' && 
+            (relativePath.startsWith('..') || path.isAbsolute(relativePath))) {
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
 
   /**
    * Auto-detect data files for a given HTML/template file
@@ -46,7 +90,7 @@ export class DataManager {
         const dataFilePath = path.join(dir, fileName);
         
         try {
-          const dataFile = await this.loadDataFile(dataFilePath);
+          const dataFile = await this.loadDataFile(dataFilePath, dir);
           if (dataFile) {
             dataFiles.push(dataFile);
           }
@@ -64,7 +108,19 @@ export class DataManager {
   /**
    * Load and parse a JSON data file
    */
-  async loadDataFile(filePath: string): Promise<DataFile | null> {
+  async loadDataFile(filePath: string, workspacePath?: string): Promise<DataFile | null> {
+    // Validate path first
+    if (!this.validatePath(filePath, workspacePath)) {
+      const dataFile: DataFile = {
+        path: filePath,
+        name: path.basename(filePath),
+        data: {},
+        isValid: false,
+        error: 'Invalid file path or file too large',
+      };
+      return dataFile;
+    }
+    
     // Check cache first
     const cached = this.dataCache.get(filePath);
     if (cached) {
@@ -73,7 +129,18 @@ export class DataManager {
 
     try {
       const content = fs.readFileSync(filePath, 'utf8');
+      
+      // Validate content size
+      if (content.length > this.MAX_FILE_SIZE) {
+        throw new Error('File content too large');
+      }
+      
       const data = JSON.parse(content);
+      
+      // Validate that parsed data is an object (not an array, not null)
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        throw new Error('JSON data must be an object, not an array');
+      }
       
       const dataFile: DataFile = {
         path: filePath,
@@ -207,19 +274,50 @@ export class DataManager {
   /**
    * Save data to a JSON file
    */
-  async saveDataFile(filePath: string, data: any): Promise<boolean> {
+  async saveDataFile(filePath: string, data: any, workspacePath?: string): Promise<boolean> {
     try {
+      const resolvedPath = path.resolve(filePath);
+      
+      // Ensure the file is a JSON file
+      if (!resolvedPath.toLowerCase().endsWith('.json')) {
+        return false;
+      }
+      
+      // If a workspace path is provided, ensure the file is within the workspace
+      if (workspacePath) {
+        const resolvedWorkspace = path.resolve(workspacePath);
+        const relativePath = path.relative(resolvedWorkspace, resolvedPath);
+        
+        // Empty string or '.' means the file is in the workspace root, which is allowed
+        // If the relative path starts with .. or is an absolute path, it's outside the workspace
+        if (relativePath !== '' && relativePath !== '.' && 
+            (relativePath.startsWith('..') || path.isAbsolute(relativePath))) {
+          return false;
+        }
+      }
+      
+      // Validate that data is an object (not an array, not null)
+      if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+        return false;
+      }
+      
       const json = JSON.stringify(data, null, 2);
-      fs.writeFileSync(filePath, json, 'utf8');
+      
+      // Check size limit
+      if (json.length > this.MAX_FILE_SIZE) {
+        return false;
+      }
+      
+      fs.writeFileSync(resolvedPath, json, 'utf8');
       
       // Update cache
       const dataFile: DataFile = {
-        path: filePath,
-        name: path.basename(filePath),
+        path: resolvedPath,
+        name: path.basename(resolvedPath),
         data,
         isValid: true,
       };
-      this.dataCache.set(filePath, dataFile);
+      this.dataCache.set(resolvedPath, dataFile);
       
       return true;
     } catch (error) {

@@ -82,7 +82,8 @@ export class TemplateEngine {
     try {
       const compiledTemplate = this.handlebars.compile(template, {
         strict: false,
-        noEscape: false,
+        noEscape: false, // Keep HTML escaping enabled for security
+        preventIndent: true, // Prevent indent-related issues
       });
 
       html = compiledTemplate(data);
@@ -98,11 +99,11 @@ export class TemplateEngine {
       const errorMessage = error instanceof Error ? error.message : String(error);
       errors.push(`Template rendering error: ${errorMessage}`);
       
-      // Return original template with error notice
+      // Return safe error message instead of original template
       html = `
         <div style="padding: 20px; background: #fff3cd; border: 2px solid #ffc107; border-radius: 4px; margin: 20px;">
           <h3 style="color: #856404; margin-bottom: 10px;">⚠️ Template Rendering Error</h3>
-          <p style="color: #856404; font-family: monospace; white-space: pre-wrap;">${errorMessage}</p>
+          <p style="color: #856404; font-family: monospace; white-space: pre-wrap;">${this.escapeHtml(errorMessage)}</p>
         </div>
       `;
     }
@@ -113,6 +114,20 @@ export class TemplateEngine {
       errors,
       missingVariables,
     };
+  }
+
+  /**
+   * Escape HTML to prevent XSS in error messages
+   */
+  private escapeHtml(text: string): string {
+    const map: { [key: string]: string } = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
   }
 
   /**

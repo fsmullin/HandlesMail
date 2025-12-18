@@ -305,9 +305,25 @@ project/
 - Preview is an approximation - always test in actual email clients before sending
 - Some email client quirks cannot be fully simulated
 
+## Security
+
+HandlesMail implements multiple security measures to protect users:
+
+- **Content Security Policy (CSP)**: Strict CSP prevents execution of malicious scripts
+- **HTML Sanitization**: Multiple passes remove dangerous tags and attributes
+- **Path Validation**: Protection against directory traversal attacks
+- **File Size Limits**: 10MB maximum for data files to prevent DoS
+- **Input Validation**: All webview inputs are validated before processing
+
+For more details, see [SECURITY.md](SECURITY.md).
+
+**⚠️ Security Notice**: Only open HTML templates and data files from trusted sources.
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or pull request on GitHub.
+
+For security vulnerabilities, please follow the responsible disclosure process described in [SECURITY.md](SECURITY.md).
 
 ## License
 

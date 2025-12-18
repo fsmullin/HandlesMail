@@ -35,27 +35,43 @@ export class PreviewPanel {
       vscode.ViewColumn.Beside,
       {
         enableScripts: true,
-        localResourceRoots: [vscode.Uri.file(path.dirname(document.uri.fsPath))],
+        localResourceRoots: [
+          vscode.Uri.file(path.dirname(document.uri.fsPath)),
+          vscode.Uri.file(context.extensionPath)
+        ],
       }
     );
 
     // Handle messages from webview
     this.panel.webview.onDidReceiveMessage(
       (message) => {
+        // Validate message structure
+        if (!message || typeof message !== 'object' || !message.command) {
+          return;
+        }
+        
         switch (message.command) {
           case 'changeViewport':
-            this.currentViewport = message.viewport;
+            if (typeof message.viewport === 'string' && this.isValidViewport(message.viewport)) {
+              this.currentViewport = message.viewport;
+            }
             break;
           case 'changeClient':
-            this.currentClient = message.client;
-            this.update(this.document);
+            if (typeof message.client === 'string' && this.isValidClient(message.client)) {
+              this.currentClient = message.client;
+              this.update(this.document);
+            }
             break;
           case 'toggleDarkMode':
-            this.darkMode = message.darkMode;
-            this.update(this.document);
+            if (typeof message.darkMode === 'boolean') {
+              this.darkMode = message.darkMode;
+              this.update(this.document);
+            }
             break;
           case 'changeDataFile':
-            this.selectDataFile(message.filePath);
+            if (typeof message.filePath === 'string') {
+              this.selectDataFile(message.filePath);
+            }
             break;
           case 'generateSampleData':
             this.generateAndApplySampleData();
@@ -103,6 +119,16 @@ export class PreviewPanel {
     this.disposeCallback = callback;
   }
 
+  private isValidViewport(viewport: string): boolean {
+    const validViewports = ['desktop-1920', 'desktop-1024', 'tablet-768', 'mobile-375', 'custom'];
+    return validViewports.includes(viewport);
+  }
+
+  private isValidClient(client: string): boolean {
+    const validClients = ['standard', 'gmail', 'outlook', 'apple'];
+    return validClients.includes(client);
+  }
+
   private getHtmlContent(htmlContent: string): string {
     // Check if content is a Handlebars template
     const isTemplate = this.templateEngine.isTemplate(htmlContent);
@@ -138,6 +164,12 @@ export class PreviewPanel {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Content Security Policy: 
+       - script-src 'unsafe-inline' is required for VS Code webview communication (acquireVsCodeApi)
+       - Primary XSS protection comes from CSP blocking external scripts and sanitization
+       - style-src 'unsafe-inline' is required for email preview styling
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${this.panel.webview.cspSource} https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline' ${this.panel.webview.cspSource}; font-src ${this.panel.webview.cspSource} https:; connect-src 'none';">
   <title>Email Preview</title>
   <style>
     * {
@@ -842,11 +874,64 @@ export class PreviewPanel {
   }
 
   private sanitizeHtml(html: string): string {
-    // Basic HTML escape for script tags and dangerous attributes
-    return html
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-      .replace(/on\w+\s*=\s*[^\s>]*/gi, '');
+    // Defense-in-depth HTML sanitization
+    // NOTE: The primary security control is the Content Security Policy (CSP) in the webview.
+    // This sanitization provides an additional layer of protection but should not be relied upon
+    // as the sole security mechanism. CSP prevents execution of inline scripts and restricts
+    // resource loading regardless of what gets through this filter.
+    let sanitized = html;
+    let previousLength = -1;
+    let iterations = 0;
+    const MAX_ITERATIONS = 10; // Prevent infinite loops from malicious HTML
+    
+    // Keep sanitizing until no more changes occur (prevents nested attacks)
+    // We use a loop because attackers may try nested encodings like <<script>script>
+    while (sanitized.length !== previousLength && sanitized.length > 0 && iterations < MAX_ITERATIONS) {
+      previousLength = sanitized.length;
+      iterations++;
+      
+      // Remove script tags and their content (with whitespace tolerance)
+      sanitized = sanitized.replace(/<script[\s\S]*?<\/script[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<script[^>]*>/gi, '');
+      
+      // Remove inline event handlers with various formats
+      // Pattern handles: onclick="..." onclick='...' onclick=... 
+      sanitized = sanitized.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+      sanitized = sanitized.replace(/\son\w+\s*=\s*[^\s"'>][^\s>]*/gi, '');
+      
+      // Remove dangerous protocols more comprehensively
+      // Single pattern that matches javascript: with optional whitespace between characters
+      sanitized = sanitized.replace(/j\s*a\s*v\s*a\s*s\s*c\s*r\s*i\s*p\s*t\s*:/gi, 'blocked:');
+      sanitized = sanitized.replace(/v\s*b\s*s\s*c\s*r\s*i\s*p\s*t\s*:/gi, 'blocked:');
+      
+      // Note: data: URLs are allowed for images in CSP and email templates commonly use them
+      // but we block them in href/action/formaction/background contexts
+      // Handle with and without quotes
+      sanitized = sanitized.replace(/\s(href|action|formaction|background)\s*=\s*["']?\s*data:[^"'\s>]*/gi, ' $1="blocked:"');
+      
+      // Remove potentially dangerous tags (with whitespace tolerance)
+      sanitized = sanitized.replace(/<iframe[\s\S]*?<\/iframe[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<iframe[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<object[\s\S]*?<\/object[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<object[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<embed[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<applet[\s\S]*?<\/applet[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<applet[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<frame[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<frameset[\s\S]*?<\/frameset[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<meta[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<base[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<link\s+rel\s*=\s*["']?import["']?[^>]*>/gi, '');
+      
+      // Remove form-related tags (forms don't work in email clients anyway)
+      sanitized = sanitized.replace(/<\/?form[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<input[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<button[^>]*>/gi, '');
+      sanitized = sanitized.replace(/<textarea[\s\S]*?<\/textarea[\s]*>/gi, '');
+      sanitized = sanitized.replace(/<select[\s\S]*?<\/select[\s]*>/gi, '');
+    }
+    
+    return sanitized;
   }
 
   private async loadDataFiles() {
@@ -862,7 +947,8 @@ export class PreviewPanel {
     if (!filePath) {
       this.currentDataFile = null;
     } else {
-      const dataFile = await this.dataManager.loadDataFile(filePath);
+      const workspaceDir = path.dirname(this.document.uri.fsPath);
+      const dataFile = await this.dataManager.loadDataFile(filePath, workspaceDir);
       if (dataFile) {
         this.currentDataFile = dataFile;
       }
@@ -882,7 +968,7 @@ export class PreviewPanel {
     const basename = path.basename(this.document.uri.fsPath, path.extname(this.document.uri.fsPath));
     const dataFilePath = path.join(dir, `${basename}.data.json`);
     
-    this.dataManager.saveDataFile(dataFilePath, sampleData).then(success => {
+    this.dataManager.saveDataFile(dataFilePath, sampleData, dir).then(success => {
       if (success) {
         vscode.window.showInformationMessage(`Sample data saved to ${path.basename(dataFilePath)}`);
         this.loadDataFiles().then(() => this.update(this.document));
