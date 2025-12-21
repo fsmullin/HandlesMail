@@ -185,12 +185,124 @@ export class PreviewPanel {
       transition: background-color 0.3s ease;
     }
 
+    .toolbar {
+      background: ${this.darkMode ? '#2d2d30' : '#ffffff'};
+      color: ${this.darkMode ? '#cccccc' : '#333'};
+      padding: 10px 16px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .toolbar-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .toolbar-button {
+      background: ${this.darkMode ? '#3c3c3c' : '#f0f0f0'};
+      border: none;
+      border-radius: 4px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 16px;
+    }
+
+    .toolbar-button:hover {
+      background: ${this.darkMode ? '#505050' : '#e0e0e0'};
+      transform: scale(1.05);
+    }
+
+    .toolbar-button.active {
+      background: #0066cc;
+      color: white;
+    }
+
+    .toolbar-button {
+      position: relative;
+    }
+
+    .toolbar-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #ff4444;
+      color: white;
+      font-size: 9px;
+      font-weight: 700;
+      min-width: 16px;
+      height: 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      border: 2px solid ${this.darkMode ? '#2d2d30' : '#ffffff'};
+    }
+
+    .controls-wrapper {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .controls-wrapper.expanded {
+      max-height: 500px;
+      margin-bottom: 16px;
+    }
+
+    .variables-wrapper {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .variables-wrapper.expanded {
+      max-height: 800px;
+      margin-bottom: 16px;
+    }
+
+    .validation-wrapper {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .validation-wrapper.expanded {
+      max-height: 800px;
+      margin-bottom: 16px;
+    }
+
+    .resources-wrapper {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .resources-wrapper.expanded {
+      max-height: 1000px;
+      margin-bottom: 16px;
+    }
+
     .controls {
       background: ${this.darkMode ? '#252526' : 'white'};
       color: ${this.darkMode ? '#cccccc' : '#333'};
       padding: 12px 16px;
       border-radius: 6px;
-      margin-bottom: 16px;
       display: flex;
       flex-wrap: wrap;
       gap: 15px;
@@ -289,27 +401,6 @@ export class PreviewPanel {
     .viewport-tablet-768 { max-width: 768px; }
     .viewport-mobile-375 { max-width: 375px; }
     .viewport-custom { max-width: var(--custom-width, 600px); }
-
-    .info-bar {
-      background: ${this.darkMode ? '#1e3a5f' : '#e8f4f8'};
-      border-left: 4px solid #0066cc;
-      padding: 12px 16px;
-      margin-bottom: 16px;
-      border-radius: 4px;
-      font-size: 13px;
-      color: ${this.darkMode ? '#9dd7ff' : '#003366'};
-    }
-
-    .client-badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: 600;
-      margin-left: 8px;
-      background: #0066cc;
-      color: white;
-    }
 
     .dimension-display {
       font-size: 12px;
@@ -663,12 +754,38 @@ export class PreviewPanel {
   </style>
 </head>
 <body>
-  <div class="info-bar">
-    📧 <strong>Email Preview</strong> - Edit your HTML file to see live updates
-    <span class="client-badge">${this.getClientName()}</span>
+  <div class="toolbar">
+    <div class="toolbar-title">HandlesMail</div>
+    <div class="toolbar-actions">
+      <button class="toolbar-button" onclick="toggleVariablesPanel()" title="Toggle Variables" id="variablesToggle">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M2 3.5a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm10.648-5.448l.646-.647.646.647-.646.646.646.646-.646.647-.646-.646-.647.646-.646-.647.646-.646-.646-.646.646-.647.647.646z"/>
+        </svg>
+        <span class="toolbar-badge" style="background: ${this.currentDataFile && missingVariables.length > 0 ? '#ff4444' : '#4caf50'};">${templateVariables.length}</span>
+      </button>
+      <button class="toolbar-button" onclick="toggleValidationPanel()" title="Toggle Validation" id="validationToggle">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+        </svg>
+        <span class="toolbar-badge" style="background: ${issues.filter(i => i.type === 'error').length > 0 ? '#ff4444' : issues.length > 0 ? '#ffa500' : '#4caf50'};">${issues.length}</span>
+      </button>
+      <button class="toolbar-button" onclick="toggleResourcesPanel()" title="Toggle Resources" id="resourcesToggle">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+          <path d="M1.5 2A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13zm13 1a.5.5 0 0 1 .5.5v6l-3.775-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12v.54A.505.505 0 0 1 1 12.5v-9a.5.5 0 0 1 .5-.5h13z"/>
+        </svg>
+        <span class="toolbar-badge" style="background: ${resources.some(r => r.isExternal || (r.type === 'image' && !r.hasAlt)) ? '#ffa500' : resources.length > 0 ? '#4caf50' : '#888'};">${resources.length}</span>
+      </button>
+      <button class="toolbar-button" onclick="toggleControls()" title="Toggle Controls" id="controlsToggle">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
+        </svg>
+      </button>
+    </div>
   </div>
 
-  <div class="controls">
+  <div class="controls-wrapper" id="controlsWrapper">
+    <div class="controls">
     <div class="control-group">
       <label for="viewportSelect">Device:</label>
       <select id="viewportSelect" onchange="changeViewport(this.value)">
@@ -714,40 +831,38 @@ export class PreviewPanel {
     </div>
 
     <span class="dimension-display" id="dimensionDisplay"></span>
+    </div>
   </div>
 
   ${isTemplate && variableReport ? `
-  <div class="validation-panel">
-    <div class="validation-toggle" onclick="toggleVariables()">
-      <span id="variableToggleIcon">▶</span>
+  <div class="variables-wrapper" id="variablesWrapper">
+    <div class="validation-panel">
       <strong>Template Variables</strong>
       <span style="font-size: 11px; color: #888;">(${templateVariables.length} variable${templateVariables.length !== 1 ? 's' : ''})</span>
-    </div>
-    <div id="variableContent" style="display: none;">
-      ${variableReport}
+      <div style="margin-top: 12px;">
+        ${variableReport}
+      </div>
     </div>
   </div>
   ` : ''}
 
-  <div class="validation-panel">
-    <div class="validation-toggle" onclick="toggleValidation()">
-      <span id="validationToggleIcon">▶</span>
+  <div class="validation-wrapper" id="validationWrapper">
+    <div class="validation-panel">
       <strong>Validation Report</strong>
       <span style="font-size: 11px; color: #888;">(${issues.length} issue${issues.length !== 1 ? 's' : ''})</span>
-    </div>
-    <div id="validationContent" style="display: none;">
-      ${validationReport}
+      <div style="margin-top: 12px;">
+        ${validationReport}
+      </div>
     </div>
   </div>
 
-  <div class="validation-panel">
-    <div class="validation-toggle" onclick="toggleResources()">
-      <span id="resourceToggleIcon">▶</span>
+  <div class="resources-wrapper" id="resourcesWrapper">
+    <div class="validation-panel">
       <strong>Resource Inspector</strong>
       <span style="font-size: 11px; color: #888;">(${resources.length} resource${resources.length !== 1 ? 's' : ''})</span>
-    </div>
-    <div id="resourceContent" style="display: none;">
-      ${resourceReport}
+      <div style="margin-top: 12px;">
+        ${resourceReport}
+      </div>
     </div>
   </div>
 
@@ -763,9 +878,66 @@ export class PreviewPanel {
 
   <script>
     const vscode = acquireVsCodeApi();
-    let validationVisible = false;
-    let resourcesVisible = false;
-    let variablesVisible = false;
+    let variablesPanelVisible = false;
+    let validationPanelVisible = false;
+    let resourcesPanelVisible = false;
+    let controlsVisible = false;
+
+    function toggleControls() {
+      const wrapper = document.getElementById('controlsWrapper');
+      const button = document.getElementById('controlsToggle');
+      controlsVisible = !controlsVisible;
+      
+      if (controlsVisible) {
+        wrapper.classList.add('expanded');
+        button.classList.add('active');
+      } else {
+        wrapper.classList.remove('expanded');
+        button.classList.remove('active');
+      }
+    }
+
+    function toggleVariablesPanel() {
+      const wrapper = document.getElementById('variablesWrapper');
+      const button = document.getElementById('variablesToggle');
+      variablesPanelVisible = !variablesPanelVisible;
+      
+      if (variablesPanelVisible) {
+        wrapper.classList.add('expanded');
+        button.classList.add('active');
+      } else {
+        wrapper.classList.remove('expanded');
+        button.classList.remove('active');
+      }
+    }
+
+    function toggleValidationPanel() {
+      const wrapper = document.getElementById('validationWrapper');
+      const button = document.getElementById('validationToggle');
+      validationPanelVisible = !validationPanelVisible;
+      
+      if (validationPanelVisible) {
+        wrapper.classList.add('expanded');
+        button.classList.add('active');
+      } else {
+        wrapper.classList.remove('expanded');
+        button.classList.remove('active');
+      }
+    }
+
+    function toggleResourcesPanel() {
+      const wrapper = document.getElementById('resourcesWrapper');
+      const button = document.getElementById('resourcesToggle');
+      resourcesPanelVisible = !resourcesPanelVisible;
+      
+      if (resourcesPanelVisible) {
+        wrapper.classList.add('expanded');
+        button.classList.add('active');
+      } else {
+        wrapper.classList.remove('expanded');
+        button.classList.remove('active');
+      }
+    }
 
     function changeViewport(viewport) {
       const frame = document.getElementById('viewport');

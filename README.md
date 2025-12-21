@@ -331,17 +331,7 @@ MIT
 
 ## Changelog
 
-### 0.1.0 (Initial Release)
-- Handlebars template engine support
-- Multiple device viewport modes (1920px, 1024px, 768px, 375px)
-- Email client simulation (Gmail, Outlook, Apple Mail)
-- Dynamic data file loading and switching
-- Template variable inspector
-- Email validation and compatibility checking
-- Resource inspector for images and links
-- Dark mode support
-- Auto-generate sample data
-- Live preview with real-time updates
+See [CHANGELOG.md](CHANGELOG.md) for a detailed list of changes in each release.
 
 ---
 

@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.2.0] - 2025-12-18
+
+### Added
+- Compact toolbar interface with icon-based controls
+- Collapsible panels for all inspector tools (variables, validation, resources, controls)
+- Smart badges on toolbar icons showing:
+  - Variable count with status indicators (green/red)
+  - Validation issue count with severity indicators (green/orange/red)
+  - Resource count with quality indicators (green/yellow/gray)
+- Handlebars template support with variable inspection
+- Data file auto-detection for template rendering (`.data.json` files)
+- Sample data generation for template variables
+- Multiple email client simulation modes (Gmail, Outlook, Apple Mail)
+- Additional viewport options (1920px, 1024px, 768px, 375px)
+- Resource inspector showing images, links, stylesheets, and scripts
+- Validation report with client-specific compatibility warnings
+- Dark mode toggle in controls panel
+
+### Changed
+- Removed top banner for cleaner interface
+- Replaced expandable sections with toolbar-controlled collapsible panels
+- Improved panel animations with smooth slide transitions
+- Enhanced visual feedback with color-coded status badges
+
+### Improved
+- More intuitive UI with toolbar-based navigation
+- Better use of screen space by hiding panels until needed
+- Clearer status indicators for template health
+- Professional icon-based interface using SVG icons
+
 ## [0.1.0] - 2024-12-16
 
 ### Added
